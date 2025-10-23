@@ -1,0 +1,105 @@
+id: ch.infomaniak.kDrive
+runtime: org.kde.Platform
+runtime-version: '6.9'
+sdk: org.kde.Sdk
+base: io.qt.qtwebengine.BaseApp
+base-version: '6.9'
+command: kDrive
+finish-args:
+  - --share=ipc
+  - --share=network
+  - --socket=wayland
+  - --socket=fallback-x11
+  - --filesystem=home
+cleanup-commands:
+  # Flatpak enforce compliance with freedesktop conventions, there's probably a better solution to this though
+  - mv /app/share/applications/kDrive_client.desktop /app/share/applications/ch.infomaniak.kDrive.desktop
+  - sed -i 's/kdrive-win/ch.infomaniak.kDrive/' /app/share/applications/ch.infomaniak.kDrive.desktop
+  # Also doesn't accept an icon this big
+  - rm /app/share/icons/hicolor/1024x1024/apps/kdrive-win.png
+  - for f in /app/share/icons/hicolor/*/apps/kdrive-win.png; do mv $f ${f%kdrive-win.png}ch.infomaniak.kDrive.png; done
+modules:
+  - name: kDrive
+    buildsystem: cmake
+    builddir: true
+    config-opts:
+      - -DKDRIVE_THEME_DIR=/run/build/kDrive/infomaniak
+    cleanup:
+      - /include
+      - /lib/pkgconfig
+      - /share/man
+    sources:
+      - type: git
+        url: https://github.com/Infomaniak/desktop-kDrive.git
+        tag: 3.7.6
+        commit: 2117286faab0932a2559ed535869aa2b34fe7527
+      - type: shell 
+        commands:
+          # log4cplus library use "U" suffix without conan
+          - sed -i 's/log4cplus::log4cplus/log4cplus::log4cplusU/' src/libcommon/CMakeLists.txt
+    modules:
+      # Alternatively, use flathub shared-modules, but this requires to add a git submodule
+      # See: https://github.com/flathub/shared-modules
+      # This module copies the definition from the flathub shared-modules repo
+      - name: libsecret 
+        buildsystem: meson 
+        config-opts:
+          - -Dmanpage=false
+          - -Dvapi=false
+          - -Dgtk_doc=false
+          - -Dintrospection=false
+        cleanup:
+          - /bin
+          - /include
+          - /lib/pkgconfig
+          - /share/man
+        sources:
+          - type: archive
+            url: https://download.gnome.org/sources/libsecret/0.21/libsecret-0.21.7.tar.xz
+            sha256: 6b452e4750590a2b5617adc40026f28d2f4903de15f1250e1d1c40bfd68ed55e
+      - name: poco
+        buildsystem: cmake
+        builddir: true
+        sources: 
+          - type: git
+            url: https://github.com/pocoproject/poco.git
+            tag: poco-1.14.2-release
+            commit: 96d182a99303fb068575294b36f0cc20da2e7b25
+      - name: log4cplus
+        buildsystem: cmake 
+        builddir: true
+        config-opts:
+          - -DUNICODE=1
+        sources: 
+          - type: git
+            url: https://github.com/log4cplus/log4cplus.git
+            tag: REL_2_1_2
+            commit: b11c9480ebb060866d2e25ce7179574b3d93385e
+      - name: libzip 
+        buildsystem: cmake
+        builddir: true
+        sources: 
+          - type: git
+            url: https://github.com/nih-at/libzip.git
+            tag: v1.11.4
+            commit: 6f8a0cdd24a0dc6cce9dac4a7679da784ab124ea
+      - name: xxHash 
+        buildsystem: cmake
+        builddir: true
+        subdir: cmake_unofficial
+        sources: 
+          - type: git
+            url: https://github.com/Cyan4973/xxHash.git
+            tag: v0.8.3
+            commit: e626a72bc2321cd320e953a0ccf1584cad60f363
+      - name: sentry 
+        buildsystem: cmake
+        builddir: true
+        config-opts:
+          - -DSENTRY_INTEGRATION_QT=YES
+          - -DCMAKE_BUILD_TYPE=RelWithDebInfo
+        sources: 
+          - type: git
+            url: https://github.com/getsentry/sentry-native.git
+            tag: 0.7.9
+            commit: 2a88542eb3136e0e357517c4c9cdb1f3c0453647
